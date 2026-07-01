@@ -1,0 +1,35 @@
+services:
+  receiver:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    # Long-lived container: the sweep script `exec`s the receiver binary into
+    # it fresh per loss-percentage iteration, keeping the same interface/MAC
+    # (and therefore the same ARP cache entries) for the whole sweep.
+    command: ["sleep", "infinity"]
+    networks:
+      netem_net:
+        ipv4_address: 10.88.0.3
+
+  sender:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    # netem shapes *egress* traffic on the interface it's applied to, and
+    # pshreds travel sender -> receiver, so the loss rule belongs on the
+    # sender's interface, not the receiver's (see run-netem-sweep.sh).
+    cap_add:
+      - NET_ADMIN
+    command: ["sleep", "infinity"]
+    networks:
+      netem_net:
+        ipv4_address: 10.88.0.2
+    depends_on:
+      - receiver
+
+networks:
+  netem_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.88.0.0/24
